@@ -233,6 +233,39 @@ export const securityLogger = (req: Request, res: Response, next: NextFunction) 
 // Middleware per blocco IP sospetti
 const suspiciousIPs = new Set<string>();
 const ipAttempts = new Map<string, { count: number; lastAttempt: Date }>();
+const cleanupTimers = new Map<string, NodeJS.Timeout>();
+
+// Cleanup automatico per prevenire memory leaks
+const cleanupOldAttempts = () => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  
+  for (const [ip, attempts] of ipAttempts.entries()) {
+    if (attempts.lastAttempt < oneHourAgo) {
+      ipAttempts.delete(ip);
+    }
+  }
+};
+
+// Avvia cleanup ogni 30 minuti
+const cleanupInterval = setInterval(cleanupOldAttempts, 30 * 60 * 1000);
+
+// Graceful shutdown per cleanup dei timer
+export const shutdownSecurityMiddleware = () => {
+  // Clear cleanup interval
+  clearInterval(cleanupInterval);
+  
+  // Clear all pending timers
+  for (const [ip, timer] of cleanupTimers.entries()) {
+    clearTimeout(timer);
+  }
+  cleanupTimers.clear();
+  
+  // Clear collections
+  suspiciousIPs.clear();
+  ipAttempts.clear();
+  
+  console.log('🔒 Security middleware cleanup completed');
+};
 
 export const blockSuspiciousIPs = (req: Request, res: Response, next: NextFunction) => {
   const clientIP = req.ip;
@@ -269,10 +302,14 @@ export const blockSuspiciousIPs = (req: Request, res: Response, next: NextFuncti
           ipAttempts.delete(clientIP);
           
           // Auto-remove dalla blacklist dopo 24 ore
-          setTimeout(() => {
+          const timer = setTimeout(() => {
             suspiciousIPs.delete(clientIP);
+            cleanupTimers.delete(clientIP);
             console.log(`✅ IP ${clientIP} removed from blacklist after 24 hours`);
           }, 24 * 60 * 60 * 1000);
+          
+          // Store timer reference per cleanup
+          cleanupTimers.set(clientIP, timer);
         }
       }
     }

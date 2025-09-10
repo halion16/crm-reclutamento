@@ -11,11 +11,39 @@ class ChatWebSocketService {
   private io: SocketIOServer | null = null;
   private typingUsers: Map<string, Set<string>> = new Map(); // chatId -> Set<userId>
   private typingTimers: Map<string, NodeJS.Timeout> = new Map(); // userId-chatId -> timer
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   initialize(io: SocketIOServer) {
     this.io = io;
     this.setupEventHandlers();
+    this.startCleanupScheduler();
     console.log('💬 Chat WebSocket service initialized');
+  }
+
+  private startCleanupScheduler() {
+    // Cleanup di timer orfani ogni 5 minuti
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupOrphanedTimers();
+    }, 5 * 60 * 1000);
+  }
+
+  private cleanupOrphanedTimers() {
+    const now = Date.now();
+    let cleanedCount = 0;
+    
+    for (const [key, timer] of this.typingTimers.entries()) {
+      // Timer più vecchi di 10 minuti sono considerati orfani
+      const timerAge = now - (timer as any)._idleStart;
+      if (timerAge > 10 * 60 * 1000) {
+        clearTimeout(timer);
+        this.typingTimers.delete(key);
+        cleanedCount++;
+      }
+    }
+    
+    if (cleanedCount > 0) {
+      console.log(`💬 Cleaned ${cleanedCount} orphaned typing timers`);
+    }
   }
 
   private setupEventHandlers() {
@@ -281,6 +309,26 @@ class ChatWebSocketService {
         this.io!.to(socketId).emit(event, data);
       });
     }
+  }
+
+  // Graceful shutdown per cleanup
+  shutdown() {
+    // Clear cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    
+    // Clear all typing timers
+    for (const [key, timer] of this.typingTimers.entries()) {
+      clearTimeout(timer);
+    }
+    this.typingTimers.clear();
+    
+    // Clear typing users
+    this.typingUsers.clear();
+    
+    console.log('💬 Chat WebSocket service shutdown completed');
   }
 }
 

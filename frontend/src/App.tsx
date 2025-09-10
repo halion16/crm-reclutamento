@@ -60,6 +60,8 @@ import ReportBuilder from './components/reports/ReportBuilder';
 import SMSCostDashboard from './components/communication/SMSCostDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginForm from './components/LoginForm';
+import ErrorBoundary from './components/ErrorBoundary';
+import ErrorBoundaryTest from './components/ErrorBoundaryTest';
 import { useNotifications } from './hooks/useNotifications';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { UserRole, RESOURCES, ACTIONS } from './types/auth';
@@ -75,7 +77,7 @@ const theme = createTheme({
   },
 });
 
-type ActiveView = 'dashboard' | 'candidates' | 'interviews' | 'communications' | 'chat' | 'ai' | 'workflow' | 'team-management' | 'reports' | 'smart-sms' | 'notifications';
+type ActiveView = 'dashboard' | 'candidates' | 'interviews' | 'communications' | 'chat' | 'ai' | 'workflow' | 'team-management' | 'reports' | 'smart-sms' | 'notifications' | 'error-test';
 
 interface MenuItem {
   id: ActiveView;
@@ -94,7 +96,9 @@ const menuItems: MenuItem[] = [
   { id: 'ai', label: 'AI Dashboard', icon: <AIIcon /> },
   { id: 'workflow', label: 'Workflow', icon: <WorkflowIcon /> },
   { id: 'reports', label: 'Reports', icon: <ReportsIcon /> },
-  { id: 'team-management', label: 'Team Management', icon: <GroupsIcon /> }
+  { id: 'team-management', label: 'Team Management', icon: <GroupsIcon /> },
+  // Development only
+  ...(import.meta.env.DEV ? [{ id: 'error-test' as ActiveView, label: '🧪 Error Test', icon: <SecurityIcon /> }] : [])
 ];
 
 const DRAWER_WIDTH = 240;
@@ -199,65 +203,101 @@ const AppContent: React.FC = () => {
   const renderContent = () => {
     switch (activeView) {
       case 'dashboard':
-        return <Dashboard />;
+        return (
+          <ErrorBoundary level="section" componentName="Dashboard">
+            <Dashboard />
+          </ErrorBoundary>
+        );
       case 'candidates':
         return (
-          <ProtectedRoute requiredPermission={{ resource: RESOURCES.CANDIDATES, action: ACTIONS.READ }}>
-            <CandidatesList refreshTrigger={0} />
-          </ProtectedRoute>
+          <ErrorBoundary level="section" componentName="CandidatesList">
+            <ProtectedRoute requiredPermission={{ resource: RESOURCES.CANDIDATES, action: ACTIONS.READ }}>
+              <CandidatesList refreshTrigger={0} />
+            </ProtectedRoute>
+          </ErrorBoundary>
         );
       case 'interviews':
         return (
-          <ProtectedRoute requiredPermission={{ resource: RESOURCES.INTERVIEWS, action: ACTIONS.READ }}>
-            <InterviewsList refreshTrigger={0} />
-          </ProtectedRoute>
+          <ErrorBoundary level="section" componentName="InterviewsList">
+            <ProtectedRoute requiredPermission={{ resource: RESOURCES.INTERVIEWS, action: ACTIONS.READ }}>
+              <InterviewsList refreshTrigger={0} />
+            </ProtectedRoute>
+          </ErrorBoundary>
         );
       case 'communications':
         return (
-          <ProtectedRoute requiredPermission={{ resource: RESOURCES.COMMUNICATIONS, action: ACTIONS.READ }}>
-            <CommunicationsList />
-          </ProtectedRoute>
+          <ErrorBoundary level="section" componentName="CommunicationsList">
+            <ProtectedRoute requiredPermission={{ resource: RESOURCES.COMMUNICATIONS, action: ACTIONS.READ }}>
+              <CommunicationsList />
+            </ProtectedRoute>
+          </ErrorBoundary>
         );
       case 'ai':
         return (
-          <ProtectedRoute requiredPermission={{ resource: RESOURCES.AI_FEATURES, action: ACTIONS.READ }}>
-            <AIDashboard />
-          </ProtectedRoute>
+          <ErrorBoundary level="section" componentName="AIDashboard">
+            <ProtectedRoute requiredPermission={{ resource: RESOURCES.AI_FEATURES, action: ACTIONS.READ }}>
+              <AIDashboard />
+            </ProtectedRoute>
+          </ErrorBoundary>
         );
       case 'workflow':
         return (
-          <ProtectedRoute requiredPermission={{ resource: RESOURCES.WORKFLOW, action: ACTIONS.READ }}>
-            <SimpleKanbanBoard />
-          </ProtectedRoute>
+          <ErrorBoundary level="section" componentName="WorkflowKanban">
+            <ProtectedRoute requiredPermission={{ resource: RESOURCES.WORKFLOW, action: ACTIONS.READ }}>
+              <SimpleKanbanBoard />
+            </ProtectedRoute>
+          </ErrorBoundary>
         );
       case 'chat':
         return (
-          <ProtectedRoute requiredPermission={{ resource: RESOURCES.COMMUNICATIONS, action: ACTIONS.READ }}>
-            <Chat />
-          </ProtectedRoute>
+          <ErrorBoundary level="section" componentName="Chat">
+            <ProtectedRoute requiredPermission={{ resource: RESOURCES.COMMUNICATIONS, action: ACTIONS.READ }}>
+              <Chat />
+            </ProtectedRoute>
+          </ErrorBoundary>
         );
       case 'team-management':
         return (
-          <ProtectedRoute requiredPermission={{ resource: 'users', action: 'read' }}>
-            <UserManagementSimple />
-          </ProtectedRoute>
+          <ErrorBoundary level="section" componentName="UserManagement">
+            <ProtectedRoute requiredPermission={{ resource: 'users', action: 'read' }}>
+              <UserManagementSimple />
+            </ProtectedRoute>
+          </ErrorBoundary>
         );
       case 'reports':
         return (
-          <ProtectedRoute requiredPermission={{ resource: RESOURCES.ANALYTICS, action: ACTIONS.READ }}>
-            <ReportBuilder />
-          </ProtectedRoute>
+          <ErrorBoundary level="section" componentName="ReportBuilder">
+            <ProtectedRoute requiredPermission={{ resource: RESOURCES.ANALYTICS, action: ACTIONS.READ }}>
+              <ReportBuilder />
+            </ProtectedRoute>
+          </ErrorBoundary>
         );
       case 'smart-sms':
         return (
-          <ProtectedRoute requiredPermission={{ resource: RESOURCES.COMMUNICATIONS, action: ACTIONS.READ }}>
-            <SMSCostDashboard />
-          </ProtectedRoute>
+          <ErrorBoundary level="section" componentName="SMSCostDashboard">
+            <ProtectedRoute requiredPermission={{ resource: RESOURCES.COMMUNICATIONS, action: ACTIONS.READ }}>
+              <SMSCostDashboard />
+            </ProtectedRoute>
+          </ErrorBoundary>
         );
       case 'notifications':
-        return <NotificationCenter open={true} onClose={() => setActiveView('dashboard')} />;
+        return (
+          <ErrorBoundary level="section" componentName="NotificationCenter">
+            <NotificationCenter open={true} onClose={() => setActiveView('dashboard')} />
+          </ErrorBoundary>
+        );
+      case 'error-test':
+        return (
+          <ErrorBoundary level="section" componentName="ErrorBoundaryTest">
+            <ErrorBoundaryTest />
+          </ErrorBoundary>
+        );
       default:
-        return <Dashboard />;
+        return (
+          <ErrorBoundary level="section" componentName="Dashboard">
+            <Dashboard />
+          </ErrorBoundary>
+        );
     }
   };
 
@@ -493,9 +533,18 @@ const AppContent: React.FC = () => {
 // Main App Component with AuthProvider
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ErrorBoundary 
+      level="global" 
+      componentName="Application"
+      onError={(error, errorInfo) => {
+        console.error('Global error caught:', error, errorInfo);
+        // Additional error reporting logic here
+      }}
+    >
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 };
 

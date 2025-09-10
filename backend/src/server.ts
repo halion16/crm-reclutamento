@@ -15,91 +15,24 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3001;
 
+// Parse CORS origins from environment variable
+const corsOrigins = process.env.CORS_ORIGINS 
+  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:5196', 'http://localhost:3000'];
+
 // 🔥 STEP 3.1: Setup WebSocket Server
 const io = new SocketIOServer(server, {
   cors: {
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:5175',
-      'http://localhost:5176',
-      'http://localhost:5177',
-      'http://localhost:5178',
-      'http://localhost:5179',
-      'http://localhost:5180',
-      'http://localhost:5181',
-      'http://localhost:5182',
-      'http://localhost:5183',
-      'http://localhost:5184',
-      'http://localhost:5185',
-      'http://localhost:5186',
-      'http://localhost:5187',
-      'http://localhost:5188',
-      'http://localhost:5189',
-      'http://localhost:5190',
-      'http://localhost:5191',
-      'http://localhost:5192',
-      'http://localhost:5193',
-      'http://localhost:5194',
-      'http://localhost:5195',
-      'http://localhost:5196',
-      'http://localhost:5197',
-      'http://localhost:5198',
-      'http://localhost:5199',
-      'http://localhost:5200',
-      'http://localhost:5201',
-      'http://localhost:5202',
-      'http://localhost:5203',
-      'http://localhost:5200',
-      'http://127.0.0.1:5178',
-      process.env.CORS_ORIGIN
-    ].filter(Boolean),
-    credentials: true
+    origin: corsOrigins,
+    credentials: process.env.CORS_ALLOW_CREDENTIALS === 'true'
   }
 });
 
 // Security middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    'http://localhost:5176',
-    'http://localhost:5177',
-    'http://localhost:5178',
-    'http://localhost:5179',
-    'http://localhost:5180',
-    'http://localhost:5181',
-    'http://localhost:5182',
-    'http://localhost:5183',
-    'http://localhost:5184',
-    'http://localhost:5185',
-    'http://localhost:5186',
-    'http://localhost:5187',
-    'http://localhost:5188',
-    'http://localhost:5189',
-    'http://localhost:5190',
-    'http://localhost:5191',
-    'http://localhost:5192',
-    'http://localhost:5193',
-    'http://localhost:5194',
-    'http://localhost:5195',
-    'http://localhost:5196',
-    'http://localhost:5197',
-    'http://localhost:5198',
-    'http://localhost:5199',
-    'http://localhost:5200',
-    'http://localhost:5201',
-    'http://localhost:5202',
-    'http://localhost:5203',
-    'http://localhost:5200',
-    'http://127.0.0.1:5178',
-    process.env.CORS_ORIGIN
-  ].filter(Boolean),
-  credentials: true
+  origin: corsOrigins,
+  credentials: process.env.CORS_ALLOW_CREDENTIALS === 'true'
 }));
 
 // Body parsing
@@ -226,3 +159,31 @@ server.listen(PORT, () => {
   console.log(`📝 API Documentation: http://localhost:${PORT}/`);
   console.log(`🔌 WebSocket Server ready for real-time connections`);
 });
+
+// Graceful shutdown
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
+function gracefulShutdown() {
+  console.log('🔄 Starting graceful shutdown...');
+  
+  // Shutdown chat WebSocket service
+  chatWebSocketService.shutdown();
+  
+  // Import and shutdown security middleware
+  import('./middleware/security').then(({ shutdownSecurityMiddleware }) => {
+    shutdownSecurityMiddleware();
+  });
+  
+  // Close server
+  server.close(() => {
+    console.log('✅ Server shutdown completed');
+    process.exit(0);
+  });
+  
+  // Force close after 10 seconds
+  setTimeout(() => {
+    console.error('❌ Forced shutdown due to timeout');
+    process.exit(1);
+  }, 10000);
+}
