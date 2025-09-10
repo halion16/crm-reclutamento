@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Database PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: crm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: crm_reclutamento
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: crm_password_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./database/sample_data.sql:/docker-entrypoint-initdb.d/2-sample_data.sql
+    networks:
+      - crm-network
+
+  # Backend API
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crm-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: "postgresql://crm_user:crm_password_2024@postgres:5432/crm_reclutamento"
+      JWT_SECRET: "your-development-jwt-secret-key"
+      CORS_ORIGIN: "http://localhost:3000"
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./backend/uploads:/app/uploads
+    networks:
+      - crm-network
+
+  # Frontend React
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: crm-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: "http://localhost:3001/api"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - crm-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  crm-network:
+    driver: bridge

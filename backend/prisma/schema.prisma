@@ -1,0 +1,211 @@
+// Prisma Schema per CRM Reclutamento
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model HrUser {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  email        String   @unique
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  role         String   @default("HR_ASSISTANT") // HR_MANAGER, HR_ASSISTANT, INTERVIEWER
+  isActive     Boolean  @default(true) @map("is_active")
+  phoneExtension String? @map("phone_extension")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  candidatesCreated           Candidate[]           @relation("CandidateCreatedBy")
+  candidatesUpdated           Candidate[]           @relation("CandidateUpdatedBy")
+  interviewsPrimary          Interview[]           @relation("InterviewPrimaryInterviewer")
+  interviewsSecondary        Interview[]           @relation("InterviewSecondaryInterviewer")
+  interviewsCreated          Interview[]           @relation("InterviewCreatedBy")
+  interviewsUpdated          Interview[]           @relation("InterviewUpdatedBy")
+  communications             Communication[]
+  communicationTemplatesCreated CommunicationTemplate[]
+  documentsUploaded          Document[]
+  activityLogs               ActivityLog[]
+
+  @@map("hr_users")
+}
+
+model Candidate {
+  id              Int      @id @default(autoincrement())
+  firstName       String   @map("first_name")
+  lastName        String   @map("last_name")
+  email           String   @unique
+  phone           String?
+  mobile          String?
+  address         String?
+  city            String?
+  postalCode      String?  @map("postal_code")
+  province        String?
+  birthDate       DateTime? @map("birth_date")
+  
+  // Dati professionali
+  positionApplied String?  @map("position_applied")
+  experienceYears Int?     @map("experience_years")
+  educationLevel  String?  @map("education_level")
+  cvFilePath      String?  @map("cv_file_path")
+  linkedinProfile String?  @map("linkedin_profile")
+  
+  // Provenienza candidatura
+  sourceChannel    String?   @map("source_channel")
+  referralPerson   String?   @map("referral_person")
+  applicationDate  DateTime  @default(now()) @map("application_date")
+  
+  // Status
+  currentStatus    String    @default("NEW") @map("current_status")
+  
+  // Metadata
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdById     Int?      @map("created_by")
+  updatedById     Int?      @map("updated_by")
+
+  // Relations
+  createdBy      HrUser?        @relation("CandidateCreatedBy", fields: [createdById], references: [id])
+  updatedBy      HrUser?        @relation("CandidateUpdatedBy", fields: [updatedById], references: [id])
+  interviews     Interview[]
+  communications Communication[]
+  documents      Document[]
+  activityLogs   ActivityLog[]
+
+  @@map("candidates")
+}
+
+model Interview {
+  id               Int      @id @default(autoincrement())
+  candidateId      Int      @map("candidate_id")
+  interviewPhase   Int      @map("interview_phase") // 1, 2, 3
+  
+  // Programmazione
+  scheduledDate    DateTime? @map("scheduled_date")
+  scheduledTime    DateTime? @map("scheduled_time")
+  durationMinutes  Int?     @default(60) @map("duration_minutes")
+  interviewType    String   @default("VIDEO_CALL") @map("interview_type")
+  
+  // Meeting details
+  meetingUrl       String?  @map("meeting_url")
+  meetingId        String?  @map("meeting_id")
+  meetingPassword  String?  @map("meeting_password")
+  location         String?
+  
+  // Intervistatori
+  primaryInterviewerId   Int? @map("primary_interviewer_id")
+  secondaryInterviewerId Int? @map("secondary_interviewer_id")
+  
+  // Status e esito
+  status           String   @default("SCHEDULED")
+  outcome          String?
+  
+  // Valutazioni
+  interviewerNotes String?  @map("interviewer_notes")
+  technicalRating  Int?     @map("technical_rating")
+  softSkillsRating Int?     @map("soft_skills_rating")
+  overallRating    Int?     @map("overall_rating")
+  
+  // Metadata
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  createdById      Int?     @map("created_by")
+  updatedById      Int?     @map("updated_by")
+
+  // Relations
+  candidate             Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  primaryInterviewer    HrUser?        @relation("InterviewPrimaryInterviewer", fields: [primaryInterviewerId], references: [id])
+  secondaryInterviewer  HrUser?        @relation("InterviewSecondaryInterviewer", fields: [secondaryInterviewerId], references: [id])
+  createdBy            HrUser?        @relation("InterviewCreatedBy", fields: [createdById], references: [id])
+  updatedBy            HrUser?        @relation("InterviewUpdatedBy", fields: [updatedById], references: [id])
+  communications       Communication[]
+  activityLogs         ActivityLog[]
+
+  @@map("interviews")
+}
+
+model Communication {
+  id                Int      @id @default(autoincrement())
+  candidateId       Int      @map("candidate_id")
+  interviewId       Int?     @map("interview_id")
+  
+  communicationType String   @map("communication_type") // EMAIL, SMS, PHONE_CALL
+  direction         String   // OUTBOUND, INBOUND
+  
+  subject           String?
+  messageContent    String?  @map("message_content")
+  
+  sentAt            DateTime? @map("sent_at")
+  deliveryStatus    String   @default("PENDING") @map("delivery_status")
+  
+  // Per chiamate
+  callDurationSeconds Int?   @map("call_duration_seconds")
+  callOutcome        String? @map("call_outcome")
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  createdById       Int      @map("created_by")
+
+  // Relations
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  interview   Interview? @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  createdBy   HrUser    @relation(fields: [createdById], references: [id])
+
+  @@map("communications")
+}
+
+model CommunicationTemplate {
+  id              Int      @id @default(autoincrement())
+  templateName    String   @map("template_name")
+  templateType    String   @map("template_type") // EMAIL, SMS
+  subjectTemplate String?  @map("subject_template")
+  messageTemplate String   @map("message_template")
+  usageContext    String?  @map("usage_context")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  createdById     Int      @map("created_by")
+
+  // Relations
+  createdBy HrUser @relation(fields: [createdById], references: [id])
+
+  @@map("communication_templates")
+}
+
+model Document {
+  id           Int      @id @default(autoincrement())
+  candidateId  Int      @map("candidate_id")
+  documentType String   @map("document_type")
+  fileName     String   @map("file_name")
+  filePath     String   @map("file_path")
+  fileSizeKb   Int?     @map("file_size_kb")
+  mimeType     String?  @map("mime_type")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+  uploadedById Int      @map("uploaded_by")
+
+  // Relations
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  uploadedBy  HrUser    @relation(fields: [uploadedById], references: [id])
+
+  @@map("documents")
+}
+
+model ActivityLog {
+  id           Int      @id @default(autoincrement())
+  candidateId  Int?     @map("candidate_id")
+  interviewId  Int?     @map("interview_id")
+  activityType String   @map("activity_type")
+  description  String
+  performedAt  DateTime @default(now()) @map("performed_at")
+  performedById Int     @map("performed_by")
+
+  // Relations
+  candidate   Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  interview   Interview? @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  performedBy HrUser     @relation(fields: [performedById], references: [id])
+
+  @@map("activity_log")
+}
