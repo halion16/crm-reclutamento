@@ -42,7 +42,7 @@ export class AuthService {
     const defaultUsers = [
       {
         email: 'admin@crm.com',
-        password: 'Admin123!',
+        password: 'AdminPass123',
         firstName: 'Admin',
         lastName: 'System',
         role: UserRole.SUPER_ADMIN,

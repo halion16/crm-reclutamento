@@ -40,7 +40,7 @@ const LoginForm: React.FC = () => {
   const demoUsers = [
     {
       email: 'admin@crm.com',
-      password: 'Admin123!',
+      password: 'AdminPass123',
       role: 'Super Admin',
       icon: <AdminIcon color="error" />,
       color: 'error' as const,

@@ -23,7 +23,7 @@ const router = express.Router();
 // Applica middleware di sicurezza a tutte le route auth
 router.use(authRateLimit);
 router.use(securityLogger);
-router.use(logSensitiveDataMasking());
+// TEMP DISABLED: router.use(logSensitiveDataMasking());
 
 // POST /auth/login - Login utente
 router.post('/login', validateLogin, async (req, res) => {
